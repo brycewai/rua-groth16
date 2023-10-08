@@ -1,4 +1,4 @@
-use crate::common::{self, Polynomial};
+use crate::common::{lagrange, polynomial, roots_of_unity};
 use bls12_381::Scalar;
 
 /// 定义约束矩阵
@@ -27,7 +27,7 @@ pub struct R1cs<const PUBLIC_WITNESS: usize, const PRIVATE_WITNESS: usize, const
 impl<const PUBLIC_WITNESS: usize, const PRIVATE_WITNESS: usize, const CONSTRAINTS: usize>
     R1cs<PUBLIC_WITNESS, PRIVATE_WITNESS, CONSTRAINTS>
 {
-    pub fn new(
+    pub const fn new(
         a: ConstraintMatrix<PUBLIC_WITNESS, PRIVATE_WITNESS, CONSTRAINTS>,
         b: ConstraintMatrix<PUBLIC_WITNESS, PRIVATE_WITNESS, CONSTRAINTS>,
         c: ConstraintMatrix<PUBLIC_WITNESS, PRIVATE_WITNESS, CONSTRAINTS>,
@@ -74,33 +74,88 @@ impl<const PUBLIC_WITNESS: usize, const PRIVATE_WITNESS: usize, const CONSTRAINT
     }
 }
 
-/// QAP
+/// R1CS -> QAP
+/// QAP使用多项式（R1CS使用的是内积）实现相同的逻辑
+/// 所以，这里需要使用拉格朗日插值进行转换
 #[derive(Clone)]
 pub struct Qap<const PUBLIC_WITNESS: usize, const PRIVATE_WITNESS: usize> {
-    pub public_u: [Polynomial; PUBLIC_WITNESS],
-    pub public_v: [Polynomial; PUBLIC_WITNESS],
-    pub public_w: [Polynomial; PUBLIC_WITNESS],
+    pub public_u: [polynomial::Polynomial; PUBLIC_WITNESS],
+    pub public_v: [polynomial::Polynomial; PUBLIC_WITNESS],
+    pub public_w: [polynomial::Polynomial; PUBLIC_WITNESS],
 
-    pub private_u: [Polynomial; PRIVATE_WITNESS],
-    pub private_v: [Polynomial; PRIVATE_WITNESS],
-    pub private_w: [Polynomial; PRIVATE_WITNESS],
+    pub private_u: [polynomial::Polynomial; PRIVATE_WITNESS],
+    pub private_v: [polynomial::Polynomial; PRIVATE_WITNESS],
+    pub private_w: [polynomial::Polynomial; PRIVATE_WITNESS],
 }
 
 /// 通过 R1CS 生成 QAP （From trait 允许一种类型定义 “怎么根据另一种类型生成自己”，因此它提供了一种类型转换的简单机制。）
 impl<const PUBLIC_WITNESS: usize, const PRIVATE_WITNESS: usize, const CONSTRAINTS: usize>
-    from<R1cs<PUBLIC_WITNESS, PRIVATE_WITNESS, CONSTRAINTS>>
+    From<R1cs<PUBLIC_WITNESS, PRIVATE_WITNESS, CONSTRAINTS>>
     for Qap<PUBLIC_WITNESS, PRIVATE_WITNESS>
 {
     fn from(r1cs: R1cs<PUBLIC_WITNESS, PRIVATE_WITNESS, CONSTRAINTS>) -> Self {
         let mut qap = Qap {
-            public_u: [Polynomial::zero(); PUBLIC_WITNESS],
-            public_v: [Polynomial::zero(); PUBLIC_WITNESS],
-            public_w: [Polynomial::zero(); PUBLIC_WITNESS],
+            public_u: [polynomial::ZERO; PUBLIC_WITNESS],
+            public_v: [polynomial::ZERO; PUBLIC_WITNESS],
+            public_w: [polynomial::ZERO; PUBLIC_WITNESS],
 
-            private_u: [Polynomial::zero(); PRIVATE_WITNESS],
-            private_v: [Polynomial::zero(); PRIVATE_WITNESS],
-            private_w: [Polynomial::zero(); PRIVATE_WITNESS],
+            private_u: [polynomial::ZERO; PRIVATE_WITNESS],
+            private_v: [polynomial::ZERO; PRIVATE_WITNESS],
+            private_w: [polynomial::ZERO; PRIVATE_WITNESS],
         };
-        // 拉格朗日
+        // 拉格朗日插值进行转化
+        let roots_unity = roots_of_unity::root_of_unity::<CONSTRAINTS>();
+        let basis_polynomials = lagrange::basis_polynomials(roots_unity);
+
+        for i in 0..PUBLIC_WITNESS {
+            qap.public_u[i] = lagrange::interpolate(&basis_polynomials, &r1cs.a.public_entries[i]);
+            qap.public_v[i] = lagrange::interpolate(&basis_polynomials, &r1cs.b.public_entries[i]);
+            qap.public_w[i] = lagrange::interpolate(&basis_polynomials, &r1cs.c.public_entries[i]);
+        }
+
+        for i in 0..PRIVATE_WITNESS {
+            qap.private_u[i] =
+                lagrange::interpolate(&basis_polynomials, &r1cs.a.private_entries[i]);
+            qap.private_v[i] =
+                lagrange::interpolate(&basis_polynomials, &r1cs.b.private_entries[i]);
+            qap.private_w[i] =
+                lagrange::interpolate(&basis_polynomials, &r1cs.c.private_entries[i]);
+        }
+        qap
+    }
+}
+
+#[cfg(test)]
+pub mod tests {
+    use bls12_381::Scalar;
+
+    use super::{ConstraintMatrix, R1cs};
+
+    pub const R1CS: R1cs<1, 1, 2> = R1cs::new(
+        ConstraintMatrix {
+            private_entries: [[Scalar::one(), Scalar::one()]],
+            public_entries: [[Scalar::zero(), Scalar::zero()]],
+        },
+        ConstraintMatrix {
+            private_entries: [[Scalar::one(), Scalar::zero()]],
+            public_entries: [[Scalar::zero(), Scalar::one()]],
+        },
+        ConstraintMatrix {
+            private_entries: [[Scalar::zero(), Scalar::one()]],
+            public_entries: [[Scalar::one(), Scalar::zero()]],
+        },
+    );
+
+    pub const R1CS_ASSIGNMENT_PRIVATE: [Scalar; 1] = [Scalar::one()];
+    pub const R1CS_ASSIGNMENT_PUBLIC: [Scalar; 1] = [Scalar::one()];
+
+    #[test]
+    fn test_r1cs() {
+        // Use witness of size 2:
+        // Private: a
+        // Public: b
+        // a^2 = b
+        // ab = a
+        assert!(R1CS.is_correct(R1CS_ASSIGNMENT_PRIVATE, R1CS_ASSIGNMENT_PUBLIC));
     }
 }
