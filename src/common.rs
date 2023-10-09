@@ -3,7 +3,7 @@ use bls12_381::Scalar;
 use pairing::PairingCurveAffine;
 
 /// Get an array with powers of x on a curve, i.e. obtain G, x*G, x^2*G, etc.
-fn powers_of_x_on_curve<
+pub fn powers_of_x_on_curve<
     const N: usize,
     Curve: PairingCurveAffine
         + std::ops::Mul<bls12_381::Scalar>

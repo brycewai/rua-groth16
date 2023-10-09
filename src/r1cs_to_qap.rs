@@ -1,6 +1,10 @@
 use crate::common::{lagrange, polynomial, roots_of_unity};
 use bls12_381::Scalar;
 
+/////////////////////////////////////////////////////////////////////
+/// R1CS -> QAP
+///
+
 /// 定义约束矩阵
 pub struct ConstraintMatrix<
     const PUBLIC_WITNESS: usize,
@@ -125,6 +129,9 @@ impl<const PUBLIC_WITNESS: usize, const PRIVATE_WITNESS: usize, const CONSTRAINT
     }
 }
 
+/////////////////////////////////////////////////////////////////////
+/// 单元测试
+///
 #[cfg(test)]
 pub mod tests {
     use bls12_381::Scalar;
