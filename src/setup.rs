@@ -1,4 +1,4 @@
-use crate::common::{polynomial::Polynomial, powers_of_x_on_curve};
+use crate::common::{polynomial::Polynomial, powers_of_x, powers_of_x_on_curve_with_generator};
 use crate::r1cs_to_qap::Qap;
 use bls12_381::{G1Affine, G2Affine, Scalar};
 
@@ -43,10 +43,12 @@ impl<
         x: Scalar,
         qap: &Qap<PUBLIC_WITNESS, PRIVATE_WITNESS>,
     ) -> Self {
+        assert_eq!(N - 1, N_MINUS_ONE);
+
         let alpha_g1 = (G1Affine::generator() * alpha).into();
         let beta_g1 = (G1Affine::generator() * beta).into();
         let delta_g1: G1Affine = (G1Affine::generator() * delta).into();
-        let x_power_g1 = powers_of_x_on_curve(x, G1Affine::generator());
+        let x_power_g1 = powers_of_x::<N, G1Affine>(x);
         // public_contribs_g1
         let mut public_contribs_g1 = [G1Affine::generator(); PUBLIC_WITNESS];
         // 创建一个迭代器，该迭代器给出当前迭代次数以及下一个值: (i, val)
@@ -76,12 +78,12 @@ impl<
         let t_x_div_delta_g1 = t_x * delta.invert().unwrap() * G1Affine::generator();
         // t(x) * x^i / delta  —— G1上的点
         let x_power_t_x_g1: [G1Affine; N_MINUS_ONE] =
-            powers_of_x_on_curve(x, t_x_div_delta_g1.into());
+            powers_of_x_on_curve_with_generator(x, t_x_div_delta_g1.into());
 
         let beta_g2 = (G2Affine::generator() * beta).into();
         let gamma_g2 = (G2Affine::generator() * gamma).into();
         let delta_g2 = (G2Affine::generator() * delta).into();
-        let x_power_g2 = powers_of_x_on_curve(x, G2Affine::generator());
+        let x_power_g2 = powers_of_x::<N, G2Affine>(x);
 
         CommonReferenceString {
             alpha_g1,

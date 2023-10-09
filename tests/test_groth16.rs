@@ -33,8 +33,7 @@ fn groth16() {
     let public_input: [Scalar; 1] = [Scalar::one()];
     let private_input: [Scalar; 1] = [Scalar::one()];
     let proof = prove(&crs, qap, public_input, private_input);
-    dbg!(&proof);
-    let res = verify(crs, public_input, proof);
+    let res = verify(&crs, &public_input, &proof);
 
     assert!(res);
 }

@@ -11,20 +11,23 @@ pub fn verify<
     const PUBLIC_WITNESS: usize,
     const PRIVATE_WITNESS: usize,
 >(
-    crs: CommonReferenceString<N, N_MINUS_ONE, PUBLIC_WITNESS, PRIVATE_WITNESS>,
-    public_input: [Scalar; PUBLIC_WITNESS],
-    proof: Proof,
+    crs: &CommonReferenceString<N, N_MINUS_ONE, PUBLIC_WITNESS, PRIVATE_WITNESS>,
+    public_input: &[Scalar; PUBLIC_WITNESS],
+    proof: &Proof,
 ) -> bool {
-    proof.a.pairing_with(&proof.b)
-        == crs.alpha_g1.pairing_with(&crs.beta_g2)
-            + G1Affine::from(
-                public_input
-                    .iter()
-                    .zip(crs.public_contribs_g1.iter())
-                    .map(|(a, contrib)| a * contrib)
-                    .sum::<G1Projective>(),
-            )
-            .pairing_with(&crs.gamma_g2)
-            + proof.c.pairing_with(&crs.delta_g2)
-    // true
+    dbg!(public_input);
+    let left = proof.a.pairing_with(&proof.b);
+    dbg!(left);
+    let right = crs.alpha_g1.pairing_with(&crs.beta_g2)
+        + G1Affine::from(
+            public_input
+                .iter()
+                .zip(crs.public_contribs_g1.iter())
+                .map(|(a, contrib)| a * contrib)
+                .sum::<G1Projective>(),
+        )
+        .pairing_with(&crs.gamma_g2)
+        + proof.c.pairing_with(&crs.delta_g2);
+    dbg!(right);
+    left == right
 }

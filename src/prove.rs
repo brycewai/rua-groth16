@@ -38,8 +38,10 @@ pub fn prove<
     public_input: [Scalar; PUBLIC_WITNESS],
     private_input: [Scalar; PRIVATE_WITNESS],
 ) -> Proof {
+    dbg!(public_input);
     let r = Scalar::one();
     let s = Scalar::one();
+
     let u_x = public_input
         .iter()
         .zip(qap.public_u.iter())
@@ -50,6 +52,7 @@ pub fn prove<
             .zip(qap.private_u.iter())
             .map(|(a, u)| *a * u.clone())
             .sum();
+
     let v_x = public_input
         .iter()
         .zip(qap.public_v.iter())
@@ -60,6 +63,7 @@ pub fn prove<
             .zip(qap.private_v.iter())
             .map(|(a, v)| *a * v.clone())
             .sum();
+
     let w_x = public_input
         .iter()
         .zip(qap.public_w.iter())
@@ -70,8 +74,9 @@ pub fn prove<
             .zip(qap.private_w.iter())
             .map(|(a, w)| *a * w.clone())
             .sum();
-    let t_x = u_x.clone() * v_x.clone() - w_x;
-    let h_x = &t_x / &Polynomial::t_x(N); // 多项式除法
+
+    let p_x = u_x.clone() * v_x.clone() - w_x;
+    let h_x = &p_x / &Polynomial::t_x(N); // 多项式除法
     assert!(h_x.remainder == Polynomial::zero()); // 余数不为0
 
     let a = (crs.alpha_g1
@@ -83,7 +88,7 @@ pub fn prove<
         + s * crs.delta_g2)
         .into();
     let b_g1: G1Affine = (crs.beta_g1
-        + G1Projective::from(u_x.evaluation_secret_power(&crs.x_power_g1))
+        + G1Projective::from(v_x.evaluation_secret_power(&crs.x_power_g1))
         + s * crs.delta_g1)
         .into();
     let c = G1Affine::from(
