@@ -1,28 +1,30 @@
-use bls12_381::{G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
-use std::vec::Vec;
+use crate::{prove::Proof, setup::CommonReferenceString};
+use bls12_381::{G1Affine, G1Projective, Scalar};
+use pairing::PairingCurveAffine;
 
-/// VerifyingKey
-pub struct VerifyingKey {
-    // alpha * G, where G is the generator of 'G1'
-    pub alpha_g1: G1Affine,
-    // beta * H, where H is the generator of 'G2'
-    pub beta_g2: G2Affine,
-    // gamma * H
-    pub gamma_g2: G2Affine,
-    // delta * H
-    pub delta_g2: G2Affine,
-    // L(X)=β⋅A(X)+α⋅B(X)+C(X)
-    pub gamma_ic_g1: Vec<G1Affine>,
-}
-
-impl Default for VerifyingKey {
-    fn default() -> self {
-        Self {
-            alpha_g1: G1Affine::default(),
-            beta_g2: G2Affine::default(),
-            gamma_g2: G2Affine::default(),
-            delta_g2: G2Affine::default(),
-            gamma_ic_g1: Vec::new(),
-        }
-    }
+/////////////////////////////////////////////////////////////////////
+/// verify
+/// 通过crs、public input、proof来计算验证proof是否正确
+pub fn verify<
+    const N: usize,
+    const N_MINUS_ONE: usize,
+    const PUBLIC_WITNESS: usize,
+    const PRIVATE_WITNESS: usize,
+>(
+    crs: CommonReferenceString<N, N_MINUS_ONE, PUBLIC_WITNESS, PRIVATE_WITNESS>,
+    public_input: [Scalar; PUBLIC_WITNESS],
+    proof: Proof,
+) -> bool {
+    proof.a.pairing_with(&proof.b)
+        == crs.alpha_g1.pairing_with(&crs.beta_g2)
+            + G1Affine::from(
+                public_input
+                    .iter()
+                    .zip(crs.public_contribs_g1.iter())
+                    .map(|(a, contrib)| a * contrib)
+                    .sum::<G1Projective>(),
+            )
+            .pairing_with(&crs.gamma_g2)
+            + proof.c.pairing_with(&crs.delta_g2)
+    // true
 }
