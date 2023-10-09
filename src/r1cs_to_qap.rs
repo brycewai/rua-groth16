@@ -11,8 +11,8 @@ pub struct ConstraintMatrix<
     const PRIVATE_WITNESS: usize,
     const CONSTRAINTS: usize,
 > {
-    public_entries: [[Scalar; CONSTRAINTS]; PUBLIC_WITNESS], // 2维数组
-    private_entries: [[Scalar; CONSTRAINTS]; PRIVATE_WITNESS], // 2维数组
+    pub public_entries: [[Scalar; CONSTRAINTS]; PUBLIC_WITNESS], // 2维数组
+    pub private_entries: [[Scalar; CONSTRAINTS]; PRIVATE_WITNESS], // 2维数组
 }
 
 /// R1CS
