@@ -37,11 +37,12 @@ pub fn powers_of_x_on_curve<
 ///
 pub mod polynomial {
     use bls12_381::Scalar;
+    use pairing::PairingCurveAffine;
     use std::{
         cmp::Ordering,
         fmt::Debug,
         iter::{self, Sum},
-        ops::{Add, Mul, MulAssign, Sub},
+        ops::{Add, Div, Mul, MulAssign, Sub},
     };
 
     #[derive(Clone, Eq, PartialEq, Default)]
@@ -79,7 +80,7 @@ pub mod polynomial {
         }
 
         pub fn degree_expect_zero_polynomial(&self) -> Option<usize> {
-            Some(self.degree).filter(|deg| *deg != 0 && *deg != usize::MAX)
+            Some(self.degree).filter(|deg| *deg != usize::MAX)
         }
     }
 
@@ -116,6 +117,11 @@ pub mod polynomial {
             }
         }
 
+        ///
+        pub fn highest_power_term(&self) -> Option<Scalar> {
+            self.terms.last().copied()
+        }
+
         /// 获取指定多项式的阶
         pub fn get_degree(&self) -> PolynomialDegree {
             PolynomialDegree {
@@ -133,6 +139,20 @@ pub mod polynomial {
                 .fold(Scalar::zero(), |value, term| value * x + term)
         }
 
+        pub fn evaluation_secret_power<G, H>(&self, powers: &[G]) -> G
+        where
+            G: PairingCurveAffine + Mul<Scalar, Output = H>,
+            H: Into<G> + Sum,
+        {
+            assert!(powers.len() >= self.terms.len());
+            self.terms
+                .iter()
+                .zip(powers.iter())
+                .map(|(coef, pow)| (*pow * *coef))
+                .sum::<H>()
+                .into()
+        }
+
         pub fn is_zero(&self) -> bool {
             self.terms.is_empty()
         }
@@ -142,7 +162,7 @@ pub mod polynomial {
     impl Mul for Polynomial {
         type Output = Polynomial;
         fn mul(self, rhs: Self) -> Self::Output {
-            if self.is_zero() {
+            if self.is_zero() || rhs.is_zero() {
                 return Polynomial::zero();
             }
             // Polynomial::zero()
@@ -162,6 +182,7 @@ pub mod polynomial {
         }
     }
 
+    /// 多项式 * 标量
     impl Mul<Scalar> for Polynomial {
         type Output = Polynomial;
         fn mul(mut self, rhs: Scalar) -> Self::Output {
@@ -172,19 +193,21 @@ pub mod polynomial {
         }
     }
 
+    /// 多项式 *= 多项式
     impl MulAssign<Polynomial> for Polynomial {
         fn mul_assign(&mut self, rhs: Polynomial) {
             *self = self.clone() * rhs
         }
     }
 
+    /// 多项式 *= 标量
     impl MulAssign<Scalar> for Polynomial {
         fn mul_assign(&mut self, rhs: Scalar) {
             *self = self.clone() * rhs
         }
     }
 
-    // 标量 * 多项式 = 多项式 * 标量
+    /// 标量 * 多项式 = 多项式 * 标量
     impl Mul<Polynomial> for Scalar {
         type Output = Polynomial;
         fn mul(self, rhs: Polynomial) -> Self::Output {
@@ -193,7 +216,7 @@ pub mod polynomial {
         }
     }
 
-    /// 实现多项式加法、减法、求和
+    /// 实现多项式求和
     impl Sum for Polynomial {
         fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
             let mut res = Polynomial::zero();
@@ -204,6 +227,7 @@ pub mod polynomial {
         }
     }
 
+    /// 多项式加法
     impl Add for Polynomial {
         type Output = Polynomial;
         fn add(mut self, rhs: Self) -> Self::Output {
@@ -214,6 +238,7 @@ pub mod polynomial {
         }
     }
 
+    /// 多项式减法
     impl Sub for Polynomial {
         type Output = Polynomial;
         fn sub(mut self, rhs: Self) -> Self::Output {
@@ -221,6 +246,43 @@ pub mod polynomial {
                 *coef -= other;
             }
             self
+        }
+    }
+    /// 多项式除法
+    #[derive(Eq, PartialEq, Debug)]
+    pub struct DivResult {
+        pub quotient: Polynomial,  // 商
+        pub remainder: Polynomial, // 余数
+    }
+
+    impl Div for &Polynomial {
+        type Output = DivResult;
+        fn div(self, rhs: Self) -> Self::Output {
+            assert!(rhs != &Polynomial::zero());
+            // dbg!(&self, &rhs); // 打印
+            let rhs_degree = rhs.get_degree();
+            // saturating_sub: 饱和整数减法。 计算 self - rhs，在数字范围内饱和，而不是溢出
+            let resulting_terms = (self.terms.len() + 1).saturating_sub(rhs.terms.len());
+            let mut remainder = self.clone();
+            let mut quotient = Polynomial {
+                terms: vec![Scalar::zero(); resulting_terms],
+            };
+
+            while remainder != Polynomial::zero() && remainder.get_degree() >= rhs_degree {
+                let quotient_x_power = remainder
+                    .get_degree()
+                    .degree_expect_zero_polynomial()
+                    .unwrap()
+                    - rhs_degree.degree_expect_zero_polynomial().unwrap();
+                quotient.terms[quotient_x_power] = remainder.highest_power_term().unwrap()
+                    * rhs.highest_power_term().unwrap().invert().unwrap();
+                remainder = self.clone() - quotient.clone() * rhs.clone();
+            }
+
+            DivResult {
+                quotient,
+                remainder,
+            }
         }
     }
 
@@ -309,7 +371,7 @@ pub mod roots_of_unity {
         let root_of_unity = primitive_root_of_unity(N);
         let mut all_roots = [Scalar::one(); N];
         all_roots[0] = root_of_unity;
-        for i in 0..N {
+        for i in 1..N {
             all_roots[i] = all_roots[i - 1] * root_of_unity;
         }
         all_roots
