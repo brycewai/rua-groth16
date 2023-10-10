@@ -1,3 +1,4 @@
+/// Reference: <https://github.com/ThomasdenH/groth16>
 use bls12_381::Scalar;
 use groth16::prove::prove;
 use groth16::r1cs_to_qap::{ConstraintMatrix, Qap, R1cs};
@@ -53,8 +54,8 @@ fn main() {
     let res1 = verify(&crs, &public_input, &proof);
     dbg!(res1);
 
-    let public_input_2 = [Scalar::from(111111111111), Scalar::from(999)];
-    dbg!(public_input_2);
-    let res2 = verify(&crs, &public_input_2, &proof);
-    dbg!(res2);
+    // let public_input_2 = [Scalar::from(111111111111), Scalar::from(999)];
+    // dbg!(public_input_2);
+    // let res2 = verify(&crs, &public_input_2, &proof);
+    // dbg!(res2);
 }
