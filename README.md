@@ -1,4 +1,4 @@
-# baby-groth16
+# rua-groth16
 
 ## 基本的Groth16算法
 
@@ -13,8 +13,8 @@
 - 生成 Proof
 - 验证 Proof
 
-## 【Baby 系列】  
+## 【rua 系列】  
 
-- [baby bitcoin](https://github.com/brycewai/baby-bitcoin)
-- [baby groth16](https://github.com/brycewai/baby-groth16)
-- [baby halo2](https://github.com/brycewai/baby-halo2)
+- [rua bitcoin](https://github.com/brycewai/rua-bitcoin)
+- [rua groth16](https://github.com/brycewai/rua-groth16)
+- [rua halo2](https://github.com/brycewai/rua-halo2)
